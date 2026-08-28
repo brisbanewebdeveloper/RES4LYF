@@ -2,6 +2,7 @@ import torch
 #from..noise_classes import *
 import comfy.model_patcher
 from .helper import has_nested_attr
+from ..safe_expression import MathExpression
 
 def get_alpha_ratio_from_sigma_up(sigma_up, sigma_next, eta, sigma_max=1.0):
     if sigma_up >= sigma_next and sigma_next > 0:
@@ -205,8 +206,17 @@ NOISE_MODE_NAMES = ["none",
 
 def get_res4lyf_half_step3(sigma, sigma_next, c2=0.5, c3=1.0, t_fn=None, sigma_fn=None, t_fn_formula="", sigma_fn_formula="", ):
 
-    t_fn_x     = eval(f"lambda sigma: {t_fn_formula}", {"torch": torch}) if t_fn_formula else t_fn
-    sigma_fn_x = eval(f"lambda t: {sigma_fn_formula}", {"torch": torch}) if sigma_fn_formula else sigma_fn
+    if t_fn_formula:
+        t_expression = MathExpression(t_fn_formula, {"sigma"})
+        t_fn_x = lambda sigma: t_expression.evaluate({"sigma": sigma})
+    else:
+        t_fn_x = t_fn
+
+    if sigma_fn_formula:
+        sigma_expression = MathExpression(sigma_fn_formula, {"t"})
+        sigma_fn_x = lambda t: sigma_expression.evaluate({"t": t})
+    else:
+        sigma_fn_x = sigma_fn
         
     t_x, t_next_x = t_fn_x(sigma), t_fn_x(sigma_next)
     h_x = t_next_x - t_x

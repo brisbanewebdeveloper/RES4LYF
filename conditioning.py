@@ -8,9 +8,6 @@ from typing import Optional, Callable, Tuple, Dict, Any, Union, TYPE_CHECKING, T
 from dataclasses import dataclass, field
 
 import copy
-import base64
-import io
-import pickle # used strictly for serializing conditioning in the ConditioningToBase64 and Base64ToConditioning nodes for API use. (Offloading T5 processing to another machine to avoid model shuffling.)
 
 import comfy.supported_models
 import node_helpers
@@ -22,6 +19,7 @@ from .sigmas  import get_sigmas
 from .helper  import initialize_or_scale, precision_tool, get_res4lyf_scheduler_list, pad_tensor_list_to_max_len
 from .latents import get_orthogonal, get_collinear
 from .res4lyf import RESplain
+from .safe_serialization import deserialize_conditioning, serialize_conditioning
 from .beta.constants import MAX_STEPS
 from .attention_masks import FullAttentionMask, FullAttentionMaskHiDream, CrossAttentionMask, SplitAttentionMask, RegionalContext
 
@@ -462,8 +460,7 @@ class ConditioningToBase64:
 
     def notify(self, unique_id=None, extra_pnginfo=None, conditioning=None):
         
-        conditioning_pickle = pickle.dumps(conditioning)
-        conditioning_base64 = base64.b64encode(conditioning_pickle).decode('utf-8')
+        conditioning_base64 = serialize_conditioning(conditioning)
         text = [conditioning_base64]
         
         if unique_id is not None and extra_pnginfo is not None:
@@ -485,50 +482,6 @@ class ConditioningToBase64:
 
         return {"ui": {"text": text}, "result": (text,)}
 
-class _SafeConditioningUnpickler(pickle.Unpickler):
-    # Restricts pickle.loads to classes that legitimate ComfyUI conditioning data needs.
-    # Prevents arbitrary code execution from a malicious base64 payload embedded in a shared workflow (CWE-502).
-    # See https://github.com/ClownsharkBatwing/RES4LYF/issues/252.
-    _SAFE_GLOBALS = {
-        ("torch._utils", "_rebuild_tensor_v2"),
-        ("torch._utils", "_rebuild_tensor"),
-        ("torch._utils", "_rebuild_parameter"),
-        ("torch._utils", "_rebuild_sparse_tensor"),
-        ("torch._utils", "_rebuild_sparse_coo_tensor"),
-        ("torch._utils", "_rebuild_meta_tensor_no_storage"),
-        ("torch", "Tensor"),
-        ("torch", "Size"),
-        ("torch", "device"),
-        ("torch", "dtype"),
-        ("torch", "Storage"),
-        ("torch", "FloatStorage"),
-        ("torch", "HalfStorage"),
-        ("torch", "DoubleStorage"),
-        ("torch", "BFloat16Storage"),
-        ("torch", "IntStorage"),
-        ("torch", "LongStorage"),
-        ("torch", "ShortStorage"),
-        ("torch", "CharStorage"),
-        ("torch", "ByteStorage"),
-        ("torch", "BoolStorage"),
-        ("torch", "ComplexFloatStorage"),
-        ("torch", "ComplexDoubleStorage"),
-        ("torch", "UntypedStorage"),
-        ("torch.storage", "_load_from_bytes"),
-        ("collections", "OrderedDict"),
-    }
-
-    def find_class(self, module, name):
-        if (module, name) in self._SAFE_GLOBALS:
-            return super().find_class(module, name)
-        raise pickle.UnpicklingError(
-            f"Base64ToConditioning refused to load class {module}.{name} from the base64 payload. "
-            f"This guard blocks arbitrary code execution via crafted workflows (CWE-502). "
-            f"If this class is needed by legitimate conditioning data, please open an issue at "
-            f"https://github.com/ClownsharkBatwing/RES4LYF/issues."
-        )
-
-
 class Base64ToConditioning:
     @classmethod
     def INPUT_TYPES(cls):
@@ -543,8 +496,7 @@ class Base64ToConditioning:
     CATEGORY     = "RES4LYF/utilities"
 
     def main(self, data):
-        conditioning_pickle = base64.b64decode(data)
-        conditioning = _SafeConditioningUnpickler(io.BytesIO(conditioning_pickle)).load()
+        conditioning = deserialize_conditioning(data)
         return (conditioning,)
 
 

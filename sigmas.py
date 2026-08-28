@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 from math import *
-import builtins
 from scipy.interpolate import CubicSpline
 from scipy import special, stats
 import torch.nn.functional as F
@@ -18,6 +17,7 @@ from typing import Optional, Callable, Tuple, Dict, Any, Union, TYPE_CHECKING, T
 
 from .res4lyf import RESplain
 from .helper  import get_res4lyf_scheduler_list
+from .safe_expression import MathExpression
 
 
 def rescale_linear(input, input_min, input_max, output_min, output_max):
@@ -869,10 +869,8 @@ class sigmas_math1:
         t_x = torch.full((t_len,), x)
         t_y = torch.full((t_len,), y)
         t_z = torch.full((t_len,), z)
-        eval_namespace = {"__builtins__": None, "round": builtins.round, "np": np, "a": t_a, "b": t_b, "c": t_c, "x": t_x, "y": t_y, "z": t_z, "s": t_s, "torch": torch}
-        eval_namespace.update(np.__dict__)
-        
-        s_out_1 = eval(f1, eval_namespace)
+        variables = {"a": t_a, "b": t_b, "c": t_c, "x": t_x, "y": t_y, "z": t_z, "s": t_s}
+        s_out_1 = MathExpression(f1, set(variables)).evaluate(variables)
         
         if rescale == True:
             s_out_1 = ((s_out_1 - min(s_out_1)) * (max1 - min1)) / (max(s_out_1) - min(s_out_1)) + min1     
@@ -938,12 +936,11 @@ class sigmas_math3:
         t_x = torch.full((t_len,), x)
         t_y = torch.full((t_len,), y)
         t_z = torch.full((t_len,), z)
-        eval_namespace = {"__builtins__": None, "np": np, "a": t_a, "b": t_b, "c": t_c, "x": t_x, "y": t_y, "z": t_z, "s": t_s, "torch": torch}
-        eval_namespace.update(np.__dict__)
-        
-        s_out_1 = eval(f1, eval_namespace)
-        s_out_2 = eval(f2, eval_namespace)
-        s_out_3 = eval(f3, eval_namespace)
+        variables = {"a": t_a, "b": t_b, "c": t_c, "x": t_x, "y": t_y, "z": t_z, "s": t_s}
+        variable_names = set(variables)
+        s_out_1 = MathExpression(f1, variable_names).evaluate(variables)
+        s_out_2 = MathExpression(f2, variable_names).evaluate(variables)
+        s_out_3 = MathExpression(f3, variable_names).evaluate(variables)
         
         if rescale1 == True:
             s_out_1 = ((s_out_1 - min(s_out_1)) * (max1 - min1)) / (max(s_out_1) - min(s_out_1)) + min1
