@@ -999,12 +999,15 @@ class SharkSampler:
 
             out['sampler'] = sampler
             out['guider'] = guider
+            out_denoised['sampler'] = sampler
+            out_denoised['guider'] = guider
 
             if noise_mask is not None:
                 state_info_out['image_initial'] = x_initial
                 state_info_out['noise_initial'] = noise_initial
 
             out['state_info'] = state_info_out
+            out_denoised['state_info'] = {k: v for k, v in state_info_out.items() if k != 'raw_x'}
 
             return (out, out_denoised, None)
 

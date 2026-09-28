@@ -823,7 +823,7 @@ def sample_rk_beta(
             if sampler_mode in {"unsample", "resample"}:
                 data_prev_ = state_info.get('data_prev_')
                 if data_prev_ is not None:
-                    if x.shape == state_info['raw_x'].shape:
+                    if x.shape == data_prev_.shape[1:]:
                         data_prev_ = state_info['data_prev_'].clone().to(dtype=work_dtype, device=work_device)
                     else:
                         resized_items = [
