@@ -406,6 +406,7 @@ class VAEStyleTransferLatent:
         #latent_out['state_info'] = copy.deepcopy(latent['state_info'])
 
         if latent_out.get('state_info', {}).get('raw_x') is not None:
+            latent_out['state_info'] = latent_out['state_info'].copy()
             latent_out['state_info']['raw_x'] = denoised_styled
         latent_out['samples'] = denoised_styled
         
@@ -678,14 +679,16 @@ class LatentUpscaleWithVAE:
             #images_prev = image_resize(images_prev, width, height, method, interpolation, condition, multiple_of, keep_proportion)
             #latent_tensor = vae.encode(image_1[:,:,:,:3])
         
+        latent_out = latent.copy()
         if 'state_info' in latent:
+            latent_out['state_info'] = latent['state_info'].copy()
             #latent['state_info']['raw_x']      = latent_tensor
-            latent['state_info']['denoised']   = latent_tensor
-            latent['state_info']['data_prev_'] = latent_prev
+            latent_out['state_info']['denoised']   = latent_tensor
+            latent_out['state_info']['data_prev_'] = latent_prev
             
-        latent['samples'] = latent_tensor.to(latent['samples'])
+        latent_out['samples'] = latent_tensor.to(latent['samples'])
 
-        return (latent,)
+        return (latent_out,)
 
 
 

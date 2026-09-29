@@ -255,11 +255,11 @@ class latent_to_raw_x:
     CATEGORY     = "RES4LYF/latents"
 
     def main(self, latent,):
-        if 'state_info' not in latent:
-            latent['state_info'] = {}
+        latent_out = latent.copy()
+        latent_out['state_info'] = latent.get('state_info', {}).copy()
         
-        latent['state_info']['raw_x'] = latent['samples'].to(torch.float64)
-        return (latent,)
+        latent_out['state_info']['raw_x'] = latent['samples'].to(torch.float64)
+        return (latent_out,)
 
 
 # Adapted from https://github.com/comfyanonymous/ComfyUI/blob/5ee381c058d606209dcafb568af20196e7884fc8/comfy_extras/nodes_wan.py
@@ -485,8 +485,7 @@ class latent_replace_state_info:
     def main(self, latent, replace_start_step, replace_end_step, replace_raw_x, replace_sigmas,
               start_step=None, end_step=None, raw_x=None, sigmas=None):
         latent_out = latent.copy()
-        if 'state_info' not in latent_out:
-            latent_out['state_info'] = {}
+        latent_out['state_info'] = latent.get('state_info', {}).copy()
         if replace_start_step:
             if start_step is None and 'start_step' in latent_out['state_info']:
                 latent_out['state_info'].pop('start_step', None)
@@ -628,9 +627,10 @@ class latent_transfer_state_info:
     def main(self, latent_to, latent_from):
         #if 'state_info' not in latent:
         #    latent['state_info'] = {}
-        
-        latent_to['state_info'] = copy.deepcopy(latent_from['state_info'])
-        return (latent_to,)
+
+        latent_out = latent_to.copy()
+        latent_out['state_info'] = copy.deepcopy(latent_from['state_info'])
+        return (latent_out,)
 
 
 
@@ -653,8 +653,9 @@ class latent_mean_channels_from_to:
     CATEGORY     = "RES4LYF/latents"
 
     def main(self, latent_to, latent_from):
-        latent_to['samples'] = latent_to['samples'] - latent_to['samples'].mean(dim=(-2,-1), keepdim=True) + latent_from['samples'].mean(dim=(-2,-1), keepdim=True)
-        return (latent_to,)
+        latent_out = latent_to.copy()
+        latent_out['samples'] = latent_to['samples'] - latent_to['samples'].mean(dim=(-2,-1), keepdim=True) + latent_from['samples'].mean(dim=(-2,-1), keepdim=True)
+        return (latent_out,)
 
 
 
